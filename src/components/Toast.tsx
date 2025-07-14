@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { CheckCircle, AlertCircle, X, Info } from 'lucide-react';
 
 export interface ToastData {
@@ -17,19 +17,17 @@ interface ToastProps {
 const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
 
-  useEffect(() => {
-    setIsVisible(true);
-    const timer = setTimeout(() => {
-      handleClose();
-    }, toast.duration || 3000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsVisible(false);
     setTimeout(() => onClose(toast.id), 300);
-  };
+  }, [toast.id, onClose]);
+
+  useEffect(() => {
+    setIsVisible(true);
+    const timer = setTimeout(handleClose, toast.duration || 3000);
+
+    return () => clearTimeout(timer);
+  }, [handleClose, toast.duration]);
 
   const icons = {
     success: CheckCircle,

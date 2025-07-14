@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Scripture, SearchResult } from '../types';
 import { Search, ExternalLink } from 'lucide-react';
 import Fuse from 'fuse.js';
@@ -22,25 +22,26 @@ const SearchView: React.FC<SearchViewProps> = ({
 }) => {
   const [isSearching, setIsSearching] = useState(false);
 
-  // Flatten all verses for search
-  const allVerses = scriptureData.volumes.flatMap(volume =>
-    volume.books.flatMap(book =>
-      book.chapters.flatMap(chapter => chapter.verses)
-    )
-  );
+  // Flatten all verses for search and memoize
+  const allVerses = useMemo(() => 
+    scriptureData.volumes.flatMap(volume =>
+      volume.books.flatMap(book =>
+        book.chapters.flatMap(chapter => chapter.verses)
+      )
+    ), [scriptureData.volumes]);
 
-  const fuse = new Fuse(allVerses, {
+  const fuse = useMemo(() => new Fuse(allVerses, {
     keys: ['text'],
     threshold: 0.3,
     includeMatches: true,
     minMatchCharLength: 3
-  });
+  }), [allVerses]);
 
-  useEffect(() => {
-    if (searchQuery.trim().length >= 3) {
+  const performSearch = useCallback((query: string) => {
+    if (query.trim().length >= 3) {
       setIsSearching(true);
       const searchTimer = setTimeout(() => {
-        const fuseResults = fuse.search(searchQuery);
+        const fuseResults = fuse.search(query);
         const results: SearchResult[] = fuseResults.map(result => {
           // Find the volume and book for this verse
           let volumeName = '';
@@ -63,7 +64,7 @@ const SearchView: React.FC<SearchViewProps> = ({
           return {
             verse: result.item,
             matchText: result.matches?.[0]?.value || result.item.text,
-            context: getContext(result.item.text, searchQuery),
+            context: getContext(result.item.text, query),
             volume: volumeName,
             bookName: bookName
           };
@@ -72,11 +73,19 @@ const SearchView: React.FC<SearchViewProps> = ({
         setIsSearching(false);
       }, 300);
 
-      return () => clearTimeout(searchTimer);
+      return searchTimer;
     } else {
       onSearchResultsChange([]);
+      return null;
     }
-  }, [searchQuery]);
+  }, [fuse, onSearchResultsChange, scriptureData.volumes]);
+
+  useEffect(() => {
+    const timer = performSearch(searchQuery);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [searchQuery, performSearch]);
 
   const getContext = (text: string, query: string) => {
     const queryLower = query.toLowerCase();

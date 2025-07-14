@@ -1,6 +1,6 @@
 import React from 'react';
 import { Verse, UserNote, UserHighlight } from '../types';
-import { MessageSquare, BookOpen, Tag } from 'lucide-react';
+import { MessageSquare, BookOpen, Tag, X } from 'lucide-react';
 import CrossReferences from './CrossReferences';
 
 interface VerseComponentProps {
@@ -11,6 +11,7 @@ interface VerseComponentProps {
   userHighlights: UserHighlight[];
   showCrossReferences?: boolean;
   onNavigateToReference?: (volume: string, book: string, chapter: number, verse: number) => void;
+  onRemoveHighlight?: (highlightId: string) => void;
 }
 
 const VerseComponent: React.FC<VerseComponentProps> = ({
@@ -20,7 +21,8 @@ const VerseComponent: React.FC<VerseComponentProps> = ({
   userNotes,
   userHighlights,
   showCrossReferences = true,
-  onNavigateToReference
+  onNavigateToReference,
+  onRemoveHighlight
 }) => {
   const hasHighlight = userHighlights.length > 0;
   const hasNotes = userNotes.length > 0;
@@ -117,13 +119,27 @@ const VerseComponent: React.FC<VerseComponentProps> = ({
           )}
         </div>
         
-        {/* Indicators */}
+        {/* Indicators and Actions */}
         <div className="flex flex-col space-y-1">
           {hasNotes && (
             <div className="w-2 h-2 bg-blue-500 rounded-full" title="Has notes" />
           )}
           {hasHighlight && (
-            <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Highlighted" />
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Highlighted" />
+              {onRemoveHighlight && userHighlights.length > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveHighlight(userHighlights[0].id);
+                  }}
+                  className="w-3 h-3 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center transition-colors"
+                  title="Remove highlight"
+                >
+                  <X className="w-2 h-2 text-red-600" />
+                </button>
+              )}
+            </div>
           )}
           {verse.crossReferences && verse.crossReferences.length > 0 && (
             <div className="w-2 h-2 bg-green-500 rounded-full" title="Has cross-references" />

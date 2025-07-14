@@ -39,7 +39,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="sidebar w-80 p-4 overflow-y-auto">
       <div className="space-y-2">
-        <h2 className="font-bold text-lg text-gray-900 mb-4">Contents</h2>
+        <div className="mb-4">
+          <h2 className="font-bold text-lg text-gray-900 mb-2">Scripture Library</h2>
+          <select 
+            value={currentVolume}
+            onChange={(e) => {
+              const newVolume = e.target.value;
+              const firstBook = scriptureData.volumes.find(v => v.id === newVolume)?.books[0];
+              if (firstBook) {
+                onNavigateToVerse(newVolume, firstBook.id, 1);
+              }
+            }}
+            className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            {scriptureData.volumes.map((volume) => (
+              <option key={volume.id} value={volume.id}>
+                {volume.name}
+              </option>
+            ))}
+          </select>
+        </div>
         
         {scriptureData.volumes.find(v => v.id === currentVolume)?.books.map((book) => (
           <div key={book.id} className="border border-gray-200 rounded-lg overflow-hidden">

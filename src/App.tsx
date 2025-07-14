@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, UserNote, UserHighlight, Bookmark, ReadingProgress, SearchResult } from './types';
+import { AppState, UserNote, UserHighlight, Bookmark, ReadingProgress } from './types';
 import { scriptureData } from './data/scriptureData';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -10,6 +10,7 @@ import BookmarksView from './components/BookmarksView';
 import ProgressView from './components/ProgressView';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastContainer, ToastData } from './components/Toast';
+import HelpModal from './components/HelpModal';
 
 const STORAGE_KEY = 'book-of-mormon-study-app';
 
@@ -36,6 +37,7 @@ function App() {
   });
 
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -245,6 +247,7 @@ function App() {
               onNavigateToReference={navigateToReference}
               onAddNote={addNote}
               onAddHighlight={addHighlight}
+              onRemoveHighlight={removeHighlight}
               onAddBookmark={addBookmark}
               onUpdateReadingProgress={updateReadingProgress}
               onAddToast={addToast}
@@ -261,6 +264,7 @@ function App() {
           onViewChange={(view) => updateAppState({ activeView: view })}
           onToggleSidebar={() => updateAppState({ sidebarOpen: !appState.sidebarOpen })}
           sidebarOpen={appState.sidebarOpen}
+          onShowHelp={() => setShowHelp(true)}
         />
         
         <div className="flex flex-1 overflow-hidden">
@@ -284,6 +288,11 @@ function App() {
         <ToastContainer
           toasts={toasts}
           onRemoveToast={removeToast}
+        />
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
         />
       </div>
     </ErrorBoundary>
