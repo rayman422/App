@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, UserNote, UserHighlight, Bookmark, ReadingProgress, SearchResult } from './types';
-import { bookOfMormon } from './data/bookOfMormon';
+import { scriptureData } from './data/scriptureData';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ScriptureReader from './components/ScriptureReader';
@@ -8,11 +8,14 @@ import SearchView from './components/SearchView';
 import NotesView from './components/NotesView';
 import BookmarksView from './components/BookmarksView';
 import ProgressView from './components/ProgressView';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastContainer, ToastData } from './components/Toast';
 
 const STORAGE_KEY = 'book-of-mormon-study-app';
 
 function App() {
   const [appState, setAppState] = useState<AppState>({
+    currentVolume: 'bom',
     currentBook: '1-nephi',
     currentChapter: 1,
     currentVerse: undefined,
@@ -23,9 +26,16 @@ function App() {
     bookmarks: [],
     readingProgress: [],
     studySessions: [],
+    readingPlans: [],
+    activeReadingPlan: undefined,
     sidebarOpen: true,
-    activeView: 'read'
+    activeView: 'read',
+    showCrossReferences: true,
+    fontSize: 'medium',
+    theme: 'light'
   });
+
+  const [toasts, setToasts] = useState<ToastData[]>([]);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -57,6 +67,18 @@ function App() {
 
   const updateAppState = (updates: Partial<AppState>) => {
     setAppState(prev => ({ ...prev, ...updates }));
+  };
+
+  const addToast = (toast: Omit<ToastData, 'id'>) => {
+    const newToast: ToastData = {
+      ...toast,
+      id: Date.now().toString()
+    };
+    setToasts(prev => [...prev, newToast]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
   };
 
   const addNote = (verseId: string, text: string, color: string = 'yellow') => {
@@ -135,12 +157,36 @@ function App() {
     }
   };
 
-  const navigateToVerse = (bookId: string, chapter: number, verse?: number) => {
+  const navigateToVerse = (volumeId: string, bookId: string, chapter: number, verse?: number) => {
     updateAppState({
+      currentVolume: volumeId,
       currentBook: bookId,
       currentChapter: chapter,
       currentVerse: verse,
       activeView: 'read'
+    });
+  };
+
+  const navigateToReference = (volume: string, book: string, chapter: number, verse: number) => {
+    // Map volume abbreviations to volume IDs
+    const volumeMap: { [key: string]: string } = {
+      'ot': 'ot',
+      'nt': 'nt',
+      'bom': 'bom',
+      'dc': 'dc',
+      'pogp': 'pogp'
+    };
+    
+    const volumeId = volumeMap[volume] || volume;
+    const bookId = book.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '');
+    
+    navigateToVerse(volumeId, bookId, chapter, verse);
+    
+    addToast({
+      type: 'info',
+      title: 'Cross-reference opened',
+      message: `Navigated to ${book} ${chapter}:${verse}`,
+      duration: 2000
     });
   };
 
@@ -153,82 +199,94 @@ function App() {
             searchResults={appState.searchResults}
             onSearchQueryChange={(query) => updateAppState({ searchQuery: query })}
             onSearchResultsChange={(results) => updateAppState({ searchResults: results })}
-            onNavigateToVerse={navigateToVerse}
-            bookOfMormon={bookOfMormon}
+            onNavigateToVerse={(bookId, chapter, verse) => navigateToVerse(appState.currentVolume, bookId, chapter, verse)}
+            scriptureData={scriptureData}
           />
         );
-      case 'notes':
-        return (
-          <NotesView
-            notes={appState.userNotes}
-            onNavigateToVerse={navigateToVerse}
-            onUpdateNote={updateNote}
-            onDeleteNote={deleteNote}
-            bookOfMormon={bookOfMormon}
-          />
-        );
-      case 'bookmarks':
-        return (
-          <BookmarksView
-            bookmarks={appState.bookmarks}
-            onNavigateToVerse={navigateToVerse}
-            onRemoveBookmark={removeBookmark}
-            bookOfMormon={bookOfMormon}
-          />
-        );
-      case 'progress':
-        return (
-          <ProgressView
-            readingProgress={appState.readingProgress}
-            studySessions={appState.studySessions}
-            bookOfMormon={bookOfMormon}
-          />
-        );
-      default:
-        return (
-          <ScriptureReader
-            bookOfMormon={bookOfMormon}
-            currentBook={appState.currentBook}
-            currentChapter={appState.currentChapter}
-            currentVerse={appState.currentVerse}
-            userNotes={appState.userNotes}
-            userHighlights={appState.userHighlights}
-            onNavigateToVerse={navigateToVerse}
-            onAddNote={addNote}
-            onAddHighlight={addHighlight}
-            onAddBookmark={addBookmark}
-            onUpdateReadingProgress={updateReadingProgress}
-          />
-        );
+              case 'notes':
+          return (
+            <NotesView
+              notes={appState.userNotes}
+              onNavigateToVerse={(bookId, chapter, verse) => navigateToVerse(appState.currentVolume, bookId, chapter, verse)}
+              onUpdateNote={updateNote}
+              onDeleteNote={deleteNote}
+              scriptureData={scriptureData}
+            />
+          );
+        case 'bookmarks':
+          return (
+            <BookmarksView
+              bookmarks={appState.bookmarks}
+              onNavigateToVerse={(bookId, chapter, verse) => navigateToVerse(appState.currentVolume, bookId, chapter, verse)}
+              onRemoveBookmark={removeBookmark}
+              scriptureData={scriptureData}
+            />
+          );
+        case 'progress':
+          return (
+            <ProgressView
+              readingProgress={appState.readingProgress}
+              studySessions={appState.studySessions}
+              scriptureData={scriptureData}
+            />
+          );
+              default:
+          return (
+            <ScriptureReader
+              scriptureData={scriptureData}
+              currentVolume={appState.currentVolume}
+              currentBook={appState.currentBook}
+              currentChapter={appState.currentChapter}
+              currentVerse={appState.currentVerse}
+              userNotes={appState.userNotes}
+              userHighlights={appState.userHighlights}
+              showCrossReferences={appState.showCrossReferences}
+              onNavigateToVerse={(volumeId, bookId, chapter, verse) => navigateToVerse(volumeId, bookId, chapter, verse)}
+              onNavigateToReference={navigateToReference}
+              onAddNote={addNote}
+              onAddHighlight={addHighlight}
+              onAddBookmark={addBookmark}
+              onUpdateReadingProgress={updateReadingProgress}
+              onAddToast={addToast}
+            />
+          );
     }
   };
 
   return (
-    <div className="h-screen flex flex-col">
-      <Header
-        activeView={appState.activeView}
-        onViewChange={(view) => updateAppState({ activeView: view })}
-        onToggleSidebar={() => updateAppState({ sidebarOpen: !appState.sidebarOpen })}
-        sidebarOpen={appState.sidebarOpen}
-      />
-      
-      <div className="flex flex-1 overflow-hidden">
-        {appState.sidebarOpen && (
-          <Sidebar
-            bookOfMormon={bookOfMormon}
-            currentBook={appState.currentBook}
-            currentChapter={appState.currentChapter}
-            onNavigateToVerse={navigateToVerse}
-            activeView={appState.activeView}
-            readingProgress={appState.readingProgress}
-          />
-        )}
+    <ErrorBoundary>
+      <div className="h-screen flex flex-col">
+        <Header
+          activeView={appState.activeView}
+          onViewChange={(view) => updateAppState({ activeView: view })}
+          onToggleSidebar={() => updateAppState({ sidebarOpen: !appState.sidebarOpen })}
+          sidebarOpen={appState.sidebarOpen}
+        />
         
-        <main className="flex-1 overflow-auto">
-          {renderMainContent()}
-        </main>
+        <div className="flex flex-1 overflow-hidden">
+          {appState.sidebarOpen && (
+            <Sidebar
+              scriptureData={scriptureData}
+              currentVolume={appState.currentVolume}
+              currentBook={appState.currentBook}
+              currentChapter={appState.currentChapter}
+              onNavigateToVerse={(volumeId, bookId, chapter, verse) => navigateToVerse(volumeId, bookId, chapter, verse)}
+              activeView={appState.activeView}
+              readingProgress={appState.readingProgress}
+            />
+          )}
+          
+          <main className="flex-1 overflow-auto">
+            {renderMainContent()}
+          </main>
+        </div>
+        
+        <ToastContainer
+          toasts={toasts}
+          onRemoveToast={removeToast}
+        />
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 

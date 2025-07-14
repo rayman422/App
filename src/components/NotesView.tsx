@@ -7,7 +7,7 @@ interface NotesViewProps {
   onNavigateToVerse: (bookId: string, chapter: number, verse?: number) => void;
   onUpdateNote: (noteId: string, text: string) => void;
   onDeleteNote: (noteId: string) => void;
-  bookOfMormon: Scripture;
+  scriptureData: Scripture;
 }
 
 const NotesView: React.FC<NotesViewProps> = ({
@@ -15,23 +15,25 @@ const NotesView: React.FC<NotesViewProps> = ({
   onNavigateToVerse,
   onUpdateNote,
   onDeleteNote,
-  bookOfMormon
+  scriptureData
 }) => {
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
   const getVerseReference = (verseId: string) => {
-    for (const book of bookOfMormon.books) {
-      for (const chapter of book.chapters) {
-        const verse = chapter.verses.find(v => v.id === verseId);
-        if (verse) {
-          return {
-            reference: `${verse.book} ${verse.chapter}:${verse.verse}`,
-            text: verse.text,
-            bookId: book.id,
-            chapter: verse.chapter,
-            verse: verse.verse
-          };
+    for (const volume of scriptureData.volumes) {
+      for (const book of volume.books) {
+        for (const chapter of book.chapters) {
+          const verse = chapter.verses.find(v => v.id === verseId);
+          if (verse) {
+            return {
+              reference: `${verse.book} ${verse.chapter}:${verse.verse}`,
+              text: verse.text,
+              bookId: book.id,
+              chapter: verse.chapter,
+              verse: verse.verse
+            };
+          }
         }
       }
     }

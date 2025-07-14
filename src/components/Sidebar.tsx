@@ -3,16 +3,18 @@ import { Scripture, ReadingProgress } from '../types';
 import { ChevronRight, ChevronDown, CheckCircle } from 'lucide-react';
 
 interface SidebarProps {
-  bookOfMormon: Scripture;
+  scriptureData: Scripture;
+  currentVolume: string;
   currentBook: string;
   currentChapter: number;
-  onNavigateToVerse: (bookId: string, chapter: number, verse?: number) => void;
+  onNavigateToVerse: (volumeId: string, bookId: string, chapter: number, verse?: number) => void;
   activeView: string;
   readingProgress: ReadingProgress[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  bookOfMormon,
+  scriptureData,
+  currentVolume,
   currentBook,
   currentChapter,
   onNavigateToVerse,
@@ -39,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="space-y-2">
         <h2 className="font-bold text-lg text-gray-900 mb-4">Contents</h2>
         
-        {bookOfMormon.books.map((book) => (
+        {scriptureData.volumes.find(v => v.id === currentVolume)?.books.map((book) => (
           <div key={book.id} className="border border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => toggleBookExpansion(book.id)}
@@ -62,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {book.chapters.map((chapter) => (
                   <button
                     key={chapter.id}
-                    onClick={() => onNavigateToVerse(book.id, chapter.chapter)}
+                    onClick={() => onNavigateToVerse(currentVolume, book.id, chapter.chapter)}
                     className={`
                       w-full px-6 py-2 text-left text-sm flex items-center justify-between
                       hover:bg-gray-100 transition-colors

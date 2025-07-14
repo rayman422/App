@@ -2,8 +2,8 @@ import React from 'react';
 import { Menu, Book, Search, StickyNote, Bookmark, TrendingUp } from 'lucide-react';
 
 interface HeaderProps {
-  activeView: 'read' | 'search' | 'notes' | 'bookmarks' | 'progress';
-  onViewChange: (view: 'read' | 'search' | 'notes' | 'bookmarks' | 'progress') => void;
+  activeView: 'read' | 'search' | 'notes' | 'bookmarks' | 'progress' | 'plans';
+  onViewChange: (view: 'read' | 'search' | 'notes' | 'bookmarks' | 'progress' | 'plans') => void;
   onToggleSidebar: () => void;
   sidebarOpen: boolean;
 }

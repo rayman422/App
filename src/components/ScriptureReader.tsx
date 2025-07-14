@@ -4,78 +4,87 @@ import { ChevronLeft, ChevronRight, Plus, Highlighter, Bookmark, MessageSquare }
 import VerseComponent from './VerseComponent';
 
 interface ScriptureReaderProps {
-  bookOfMormon: Scripture;
+  scriptureData: Scripture;
+  currentVolume: string;
   currentBook: string;
   currentChapter: number;
   currentVerse?: number;
   userNotes: UserNote[];
   userHighlights: UserHighlight[];
-  onNavigateToVerse: (bookId: string, chapter: number, verse?: number) => void;
+  showCrossReferences?: boolean;
+  onNavigateToVerse: (volumeId: string, bookId: string, chapter: number, verse?: number) => void;
+  onNavigateToReference?: (volume: string, book: string, chapter: number, verse: number) => void;
   onAddNote: (verseId: string, text: string, color?: string) => void;
   onAddHighlight: (verseId: string, color?: string) => void;
   onAddBookmark: (verseId: string, title: string) => void;
   onUpdateReadingProgress: (bookId: string, chapterId: string, verseId: string) => void;
+  onAddToast?: (toast: any) => void;
 }
 
 const ScriptureReader: React.FC<ScriptureReaderProps> = ({
-  bookOfMormon,
+  scriptureData,
+  currentVolume,
   currentBook,
   currentChapter,
   currentVerse,
   userNotes,
   userHighlights,
+  showCrossReferences = true,
   onNavigateToVerse,
+  onNavigateToReference,
   onAddNote,
   onAddHighlight,
   onAddBookmark,
-  onUpdateReadingProgress
+  onUpdateReadingProgress,
+  onAddToast
 }) => {
   const [selectedVerse, setSelectedVerse] = useState<string | null>(null);
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [noteText, setNoteText] = useState('');
 
-  const currentBookData = bookOfMormon.books.find(book => book.id === currentBook);
+  const currentVolumeData = scriptureData.volumes.find(volume => volume.id === currentVolume);
+  const currentBookData = currentVolumeData?.books.find(book => book.id === currentBook);
   const currentChapterData = currentBookData?.chapters.find(chapter => chapter.chapter === currentChapter);
 
   const canGoPrevious = () => {
-    if (!currentBookData) return false;
+    if (!currentBookData || !currentVolumeData) return false;
     if (currentChapter > 1) return true;
-    const currentBookIndex = bookOfMormon.books.findIndex(book => book.id === currentBook);
+    const currentBookIndex = currentVolumeData.books.findIndex(book => book.id === currentBook);
     return currentBookIndex > 0;
   };
 
   const canGoNext = () => {
-    if (!currentBookData) return false;
+    if (!currentBookData || !currentVolumeData) return false;
     if (currentChapter < currentBookData.chapters.length) return true;
-    const currentBookIndex = bookOfMormon.books.findIndex(book => book.id === currentBook);
-    return currentBookIndex < bookOfMormon.books.length - 1;
+    const currentBookIndex = currentVolumeData.books.findIndex(book => book.id === currentBook);
+    return currentBookIndex < currentVolumeData.books.length - 1;
   };
 
   const goToPrevious = () => {
-    if (!currentBookData) return;
+    if (!currentBookData || !currentVolumeData) return;
     
     if (currentChapter > 1) {
-      onNavigateToVerse(currentBook, currentChapter - 1);
+      onNavigateToVerse(currentVolume, currentBook, currentChapter - 1);
     } else {
-      const currentBookIndex = bookOfMormon.books.findIndex(book => book.id === currentBook);
+      const currentBookIndex = currentVolumeData.books.findIndex(book => book.id === currentBook);
       if (currentBookIndex > 0) {
-        const prevBook = bookOfMormon.books[currentBookIndex - 1];
+        const prevBook = currentVolumeData.books[currentBookIndex - 1];
         const lastChapter = prevBook.chapters[prevBook.chapters.length - 1];
-        onNavigateToVerse(prevBook.id, lastChapter.chapter);
+        onNavigateToVerse(currentVolume, prevBook.id, lastChapter.chapter);
       }
     }
   };
 
   const goToNext = () => {
-    if (!currentBookData) return;
+    if (!currentBookData || !currentVolumeData) return;
     
     if (currentChapter < currentBookData.chapters.length) {
-      onNavigateToVerse(currentBook, currentChapter + 1);
+      onNavigateToVerse(currentVolume, currentBook, currentChapter + 1);
     } else {
-      const currentBookIndex = bookOfMormon.books.findIndex(book => book.id === currentBook);
-      if (currentBookIndex < bookOfMormon.books.length - 1) {
-        const nextBook = bookOfMormon.books[currentBookIndex + 1];
-        onNavigateToVerse(nextBook.id, 1);
+      const currentBookIndex = currentVolumeData.books.findIndex(book => book.id === currentBook);
+      if (currentBookIndex < currentVolumeData.books.length - 1) {
+        const nextBook = currentVolumeData.books[currentBookIndex + 1];
+        onNavigateToVerse(currentVolume, nextBook.id, 1);
       }
     }
   };
@@ -161,6 +170,8 @@ const ScriptureReader: React.FC<ScriptureReaderProps> = ({
             onClick={() => handleVerseClick(verse)}
             userNotes={userNotes.filter(note => note.verseId === verse.id)}
             userHighlights={userHighlights.filter(highlight => highlight.verseId === verse.id)}
+            showCrossReferences={showCrossReferences}
+            onNavigateToReference={onNavigateToReference}
           />
         ))}
       </div>

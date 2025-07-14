@@ -6,27 +6,29 @@ interface BookmarksViewProps {
   bookmarks: BookmarkType[];
   onNavigateToVerse: (bookId: string, chapter: number, verse?: number) => void;
   onRemoveBookmark: (bookmarkId: string) => void;
-  bookOfMormon: Scripture;
+  scriptureData: Scripture;
 }
 
 const BookmarksView: React.FC<BookmarksViewProps> = ({
   bookmarks,
   onNavigateToVerse,
   onRemoveBookmark,
-  bookOfMormon
+  scriptureData
 }) => {
   const getVerseInfo = (verseId: string) => {
-    for (const book of bookOfMormon.books) {
-      for (const chapter of book.chapters) {
-        const verse = chapter.verses.find(v => v.id === verseId);
-        if (verse) {
-          return {
-            reference: `${verse.book} ${verse.chapter}:${verse.verse}`,
-            text: verse.text,
-            bookId: book.id,
-            chapter: verse.chapter,
-            verse: verse.verse
-          };
+    for (const volume of scriptureData.volumes) {
+      for (const book of volume.books) {
+        for (const chapter of book.chapters) {
+          const verse = chapter.verses.find(v => v.id === verseId);
+          if (verse) {
+            return {
+              reference: `${verse.book} ${verse.chapter}:${verse.verse}`,
+              text: verse.text,
+              bookId: book.id,
+              chapter: verse.chapter,
+              verse: verse.verse
+            };
+          }
         }
       }
     }

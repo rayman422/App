@@ -1,6 +1,7 @@
 import React from 'react';
 import { Verse, UserNote, UserHighlight } from '../types';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, BookOpen, Tag } from 'lucide-react';
+import CrossReferences from './CrossReferences';
 
 interface VerseComponentProps {
   verse: Verse;
@@ -8,6 +9,8 @@ interface VerseComponentProps {
   onClick: () => void;
   userNotes: UserNote[];
   userHighlights: UserHighlight[];
+  showCrossReferences?: boolean;
+  onNavigateToReference?: (volume: string, book: string, chapter: number, verse: number) => void;
 }
 
 const VerseComponent: React.FC<VerseComponentProps> = ({
@@ -15,7 +18,9 @@ const VerseComponent: React.FC<VerseComponentProps> = ({
   isSelected,
   onClick,
   userNotes,
-  userHighlights
+  userHighlights,
+  showCrossReferences = true,
+  onNavigateToReference
 }) => {
   const hasHighlight = userHighlights.length > 0;
   const hasNotes = userNotes.length > 0;
@@ -63,14 +68,52 @@ const VerseComponent: React.FC<VerseComponentProps> = ({
                     <MessageSquare className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <p className="text-sm text-blue-800">{note.text}</p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        {new Date(note.createdAt).toLocaleDateString()}
-                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-blue-600">
+                          {new Date(note.createdAt).toLocaleDateString()}
+                        </p>
+                        {note.tags && note.tags.length > 0 && (
+                          <div className="flex items-center space-x-1">
+                            <Tag className="w-3 h-3 text-blue-500" />
+                            <span className="text-xs text-blue-600">
+                              {note.tags.join(', ')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Display topical guide entries */}
+          {verse.topicalGuideEntries && verse.topicalGuideEntries.length > 0 && (
+            <div className="mt-3">
+              <div className="flex items-center space-x-2 mb-2">
+                <BookOpen className="w-4 h-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">Topical Guide:</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {verse.topicalGuideEntries.map((entry, index) => (
+                  <span
+                    key={index}
+                    className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full"
+                  >
+                    {entry}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Display cross-references */}
+          {showCrossReferences && verse.crossReferences && onNavigateToReference && (
+            <CrossReferences
+              crossReferences={verse.crossReferences}
+              onNavigateToReference={onNavigateToReference}
+            />
           )}
         </div>
         
@@ -81,6 +124,12 @@ const VerseComponent: React.FC<VerseComponentProps> = ({
           )}
           {hasHighlight && (
             <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Highlighted" />
+          )}
+          {verse.crossReferences && verse.crossReferences.length > 0 && (
+            <div className="w-2 h-2 bg-green-500 rounded-full" title="Has cross-references" />
+          )}
+          {verse.topicalGuideEntries && verse.topicalGuideEntries.length > 0 && (
+            <div className="w-2 h-2 bg-purple-500 rounded-full" title="Topical Guide entries" />
           )}
         </div>
       </div>

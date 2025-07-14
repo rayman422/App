@@ -9,7 +9,7 @@ interface SearchViewProps {
   onSearchQueryChange: (query: string) => void;
   onSearchResultsChange: (results: SearchResult[]) => void;
   onNavigateToVerse: (bookId: string, chapter: number, verse?: number) => void;
-  bookOfMormon: Scripture;
+  scriptureData: Scripture;
 }
 
 const SearchView: React.FC<SearchViewProps> = ({
@@ -18,13 +18,15 @@ const SearchView: React.FC<SearchViewProps> = ({
   onSearchQueryChange,
   onSearchResultsChange,
   onNavigateToVerse,
-  bookOfMormon
+  scriptureData
 }) => {
   const [isSearching, setIsSearching] = useState(false);
 
   // Flatten all verses for search
-  const allVerses = bookOfMormon.books.flatMap(book =>
-    book.chapters.flatMap(chapter => chapter.verses)
+  const allVerses = scriptureData.volumes.flatMap(volume =>
+    volume.books.flatMap(book =>
+      book.chapters.flatMap(chapter => chapter.verses)
+    )
   );
 
   const fuse = new Fuse(allVerses, {
@@ -39,11 +41,33 @@ const SearchView: React.FC<SearchViewProps> = ({
       setIsSearching(true);
       const searchTimer = setTimeout(() => {
         const fuseResults = fuse.search(searchQuery);
-        const results: SearchResult[] = fuseResults.map(result => ({
-          verse: result.item,
-          matchText: result.matches?.[0]?.value || result.item.text,
-          context: getContext(result.item.text, searchQuery)
-        }));
+        const results: SearchResult[] = fuseResults.map(result => {
+          // Find the volume and book for this verse
+          let volumeName = '';
+          let bookName = '';
+          
+          for (const volume of scriptureData.volumes) {
+            for (const book of volume.books) {
+              for (const chapter of book.chapters) {
+                if (chapter.verses.some(v => v.id === result.item.id)) {
+                  volumeName = volume.name;
+                  bookName = book.name;
+                  break;
+                }
+              }
+              if (bookName) break;
+            }
+            if (volumeName) break;
+          }
+          
+          return {
+            verse: result.item,
+            matchText: result.matches?.[0]?.value || result.item.text,
+            context: getContext(result.item.text, searchQuery),
+            volume: volumeName,
+            bookName: bookName
+          };
+        });
         onSearchResultsChange(results);
         setIsSearching(false);
       }, 300);

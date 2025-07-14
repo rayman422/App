@@ -5,15 +5,16 @@ import { TrendingUp, BookOpen, Calendar, Clock, Target } from 'lucide-react';
 interface ProgressViewProps {
   readingProgress: ReadingProgress[];
   studySessions: StudySession[];
-  bookOfMormon: Scripture;
+  scriptureData: Scripture;
 }
 
 const ProgressView: React.FC<ProgressViewProps> = ({
   readingProgress,
   studySessions,
-  bookOfMormon
+  scriptureData
 }) => {
-  const totalChapters = bookOfMormon.books.reduce((total, book) => total + book.chapters.length, 0);
+  const totalChapters = scriptureData.volumes.reduce((total, volume) => 
+    total + volume.books.reduce((bookTotal, book) => bookTotal + book.chapters.length, 0), 0);
   const completedChapters = readingProgress.filter(p => p.completed).length;
   const progressPercentage = totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
 
@@ -26,7 +27,11 @@ const ProgressView: React.FC<ProgressViewProps> = ({
     .slice(0, 7);
 
   const getBookProgress = (bookId: string) => {
-    const book = bookOfMormon.books.find(b => b.id === bookId);
+    let book: any = null;
+    for (const volume of scriptureData.volumes) {
+      book = volume.books.find(b => b.id === bookId);
+      if (book) break;
+    }
     if (!book) return { completed: 0, total: 0, percentage: 0 };
     
     const bookProgress = readingProgress.filter(p => p.bookId === bookId && p.completed);
@@ -112,7 +117,7 @@ const ProgressView: React.FC<ProgressViewProps> = ({
         <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Progress by Book</h2>
           <div className="space-y-4">
-            {bookOfMormon.books.map((book) => {
+            {scriptureData.volumes.flatMap(volume => volume.books).map((book) => {
               const progress = getBookProgress(book.id);
               return (
                 <div key={book.id} className="border border-gray-100 rounded-lg p-4">
