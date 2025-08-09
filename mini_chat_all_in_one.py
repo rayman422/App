@@ -625,6 +625,7 @@ def run_cli(model_wrapper: ModelWrapper):
                 print("  process-detail - Show detailed process information")
                 print("  cache-detail - Show detailed cache information")
                 print("  deps-detail - Show detailed dependencies information")
+                print("  system-overview - Show comprehensive system overview")
                 print("  stats     - Show conversation statistics")
                 print("  exit      - Exit the program")
                 continue
@@ -1684,6 +1685,73 @@ def run_cli(model_wrapper: ModelWrapper):
                     print("  pkg_resources not available")
                 except Exception as e:
                     print(f"  Dependencies detail info unavailable: {e}")
+                continue
+            if user.lower() == "system-overview":
+                print("Comprehensive System Overview:")
+                print("=" * 50)
+                
+                # System information
+                print("  SYSTEM INFORMATION:")
+                print(f"    OS: {platform.system()} {platform.release()}")
+                print(f"    Platform: {platform.platform()}")
+                print(f"    Architecture: {platform.architecture()}")
+                print(f"    Machine: {platform.machine()}")
+                print(f"    Processor: {platform.processor()}")
+                print(f"    Python: {sys.version.split()[0]}")
+                print(f"    Working Directory: {os.getcwd()}")
+                
+                # Hardware information
+                try:
+                    import psutil
+                    print("\n  HARDWARE INFORMATION:")
+                    print(f"    CPU Cores: {psutil.cpu_count()}")
+                    print(f"    CPU Usage: {psutil.cpu_percent(interval=1)}%")
+                    
+                    memory = psutil.virtual_memory()
+                    print(f"    RAM Total: {memory.total // (1024**3):.1f} GB")
+                    print(f"    RAM Used: {memory.used // (1024**3):.1f} GB ({memory.percent}%)")
+                    
+                    disk = psutil.disk_usage('.')
+                    print(f"    Disk Total: {disk.total // (1024**3):.1f} GB")
+                    print(f"    Disk Used: {disk.used // (1024**3):.1f} GB ({(disk.used / disk.total) * 100:.1f}%)")
+                    
+                    if torch.cuda.is_available():
+                        gpu_props = torch.cuda.get_device_properties(0)
+                        print(f"    GPU: {gpu_props.name}")
+                        print(f"    GPU Memory: {gpu_props.total_memory // (1024**3):.1f} GB")
+                except ImportError:
+                    print("\n  HARDWARE INFORMATION: psutil not available")
+                
+                # Model information
+                print("\n  MODEL INFORMATION:")
+                print(f"    Current Model: {model_wrapper.model_name}")
+                print(f"    Device: {model_wrapper.device}")
+                print(f"    Temperature: {model_wrapper.temperature}")
+                print(f"    Top-p: {model_wrapper.top_p}")
+                print(f"    Top-k: {model_wrapper.top_k}")
+                print(f"    Repetition Penalty: {model_wrapper.repetition_penalty}")
+                print(f"    Conversations: {len(model_wrapper.conversation_history)}")
+                
+                # Network information
+                try:
+                    hostname = socket.gethostname()
+                    local_ip = socket.gethostbyname(hostname)
+                    print("\n  NETWORK INFORMATION:")
+                    print(f"    Hostname: {hostname}")
+                    print(f"    Local IP: {local_ip}")
+                    print(f"    Web URL: http://{local_ip}:8000")
+                    print(f"    WebSocket: ws://{local_ip}:8000/ws/chat")
+                except Exception:
+                    print("\n  NETWORK INFORMATION: Unable to retrieve")
+                
+                # Performance summary
+                print("\n  PERFORMANCE SUMMARY:")
+                print(f"    Model Loaded: {'Yes' if model_wrapper.model else 'No'}")
+                print(f"    Tokenizer Loaded: {'Yes' if model_wrapper.tokenizer else 'No'}")
+                print(f"    CUDA Available: {'Yes' if torch.cuda.is_available() else 'No'}")
+                print(f"    MPS Available: {'Yes' if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available() else 'No'}")
+                
+                print("=" * 50)
                 continue
             if not safe_check(user):
                 print("Bot: Sorry, I can't help with that.")
