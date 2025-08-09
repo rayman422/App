@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MiniChat</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #log { height: 360px; overflow:auto; border:1px solid #ddd; padding:10px; }
+    #input { width: 78%; padding:6px; }
+    button { padding:6px 10px; }
+    .you { color: #1a73e8; }
+    .bot { color: #2e7d32; }
+    .sys { color: #d32f2f; }
+  </style>
+</head>
+<body>
+  <h2>MiniChat</h2>
+  <div id="log"></div>
+  <div style="margin-top:12px;">
+    <input id="input" placeholder="Type your message..." />
+    <button id="send">Send</button>
+  </div>
+  <script>
+    const log = document.getElementById("log");
+    function addLine(cls, html) {
+      const d = document.createElement("div");
+      d.className = cls;
+      d.innerHTML = html;
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/chat");
+    ws.onopen = () => addLine('sys', '<i>Connected to server.</i>');
+    ws.onmessage = (e) => {
+      addLine('bot', '<b>Bot:</b> ' + e.data);
+    };
+    ws.onclose = () => addLine('sys', '<i>Disconnected.</i>');
+    ws.onerror = (e) => console.error(e);
+
+    document.getElementById("send").onclick = () => {
+      const v = document.getElementById("input").value;
+      if(!v) return;
+      addLine('you', '<b>You:</b> ' + v);
+      ws.send(v);
+      document.getElementById("input").value = "";
+    };
+    document.getElementById("input").addEventListener("keydown", (e) => {
+      if(e.key === "Enter") document.getElementById("send").click();
+    });
+  </script>
+</body>
+</html>

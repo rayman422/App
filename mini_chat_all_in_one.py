@@ -33,19 +33,23 @@ import uvicorn
 # ---------------------------
 # Configuration
 # ---------------------------
-DEFAULT_MODEL = "EleutherAI/gpt-neo-125M"  # change to another model if desired
+DEFAULT_MODEL = "EleutherAI/gpt-neo-125M" # change to another model if desired
 DEFAULT_MAX_NEW_TOKENS = 150
-DEFAULT_DEVICE = get_device()
 CLIENT_HTML_PATH = "client.html"
 
+# ---------------------------
+# Utilities
+# ---------------------------
 def get_device():
-    """Get the best available device for PyTorch."""
+    """Detect the best available device for PyTorch."""
     if torch.cuda.is_available():
         return "cuda"
     elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-        return "mps"  # Apple Silicon
+        return "mps"
     else:
         return "cpu"
+
+DEFAULT_DEVICE = get_device()
 
 # ---------------------------
 # Utilities
