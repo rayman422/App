@@ -18,8 +18,6 @@ This script:
 
 import argparse
 import os
-import textwrap
-import threading
 import asyncio
 from typing import Optional
 
@@ -37,8 +35,17 @@ import uvicorn
 # ---------------------------
 DEFAULT_MODEL = "EleutherAI/gpt-neo-125M"  # change to another model if desired
 DEFAULT_MAX_NEW_TOKENS = 150
-DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEFAULT_DEVICE = get_device()
 CLIENT_HTML_PATH = "client.html"
+
+def get_device():
+    """Get the best available device for PyTorch."""
+    if torch.cuda.is_available():
+        return "cuda"
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return "mps"  # Apple Silicon
+    else:
+        return "cpu"
 
 # ---------------------------
 # Utilities
@@ -128,41 +135,55 @@ class ModelWrapper:
         self._load()
 
     def _load(self):
-        print(f"[INFO] Loading tokenizer & model: {self.model_name} on device {self.device} ...")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        # For some models the tokenizer doesn't set pad/eos; ensure eos_token_id exists
-        if self.tokenizer.pad_token is None:
-            try:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
-            except Exception:
-                pass
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
-        self.model.to(self.device)
-        print("[INFO] Model loaded.")
+        try:
+            print(f"[INFO] Loading tokenizer & model: {self.model_name} on device {self.device} ...")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            # For some models the tokenizer doesn't set pad/eos; ensure eos_token_id exists
+            if self.tokenizer.pad_token is None:
+                try:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                except Exception:
+                    pass
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+            self.model.to(self.device)
+            print("[INFO] Model loaded successfully.")
+        except Exception as e:
+            print(f"[ERROR] Failed to load model: {e}")
+            print("[INFO] Falling back to CPU...")
+            self.device = "cpu"
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+            self.model.to(self.device)
+            print("[INFO] Model loaded on CPU.")
 
     @torch.no_grad()
     def generate(self, prompt: str, max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS) -> str:
-        # Tokenize and move to device
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        # Generate
-        outputs = self.model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=True,
-            top_k=50,
-            top_p=0.95,
-            temperature=0.8,
-            pad_token_id=self.tokenizer.eos_token_id
-        )
-        # decode only the newly generated tokens
-        gen_text = self.tokenizer.decode(outputs[0][inputs['input_ids'].shape[-1]:], skip_special_tokens=True)
-        return gen_text.strip()
+        try:
+            # Tokenize and move to device
+            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+            # Generate
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=True,
+                top_k=50,
+                top_p=0.95,
+                temperature=0.8,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+            # decode only the newly generated tokens
+            gen_text = self.tokenizer.decode(outputs[0][inputs['input_ids'].shape[-1]:], skip_special_tokens=True)
+            return gen_text.strip()
+        except Exception as e:
+            print(f"[ERROR] Generation failed: {e}")
+            return "I'm sorry, I encountered an error while generating a response. Please try again."
 
 # ---------------------------
 # CLI Chat
 # ---------------------------
 def run_cli(model_wrapper: ModelWrapper):
     print("MiniChat CLI — type 'exit' or Ctrl-C to quit.")
+    print(f"Using model: {model_wrapper.model_name} on {model_wrapper.device}")
+    print("Commands: 'help', 'clear', 'exit'")
     chat_history = ""
     try:
         while True:
@@ -172,14 +193,27 @@ def run_cli(model_wrapper: ModelWrapper):
                 break
             if not user:
                 continue
+            if user.lower() == "help":
+                print("Commands:")
+                print("  help   - Show this help")
+                print("  clear  - Clear chat history")
+                print("  exit   - Exit the program")
+                continue
+            if user.lower() == "clear":
+                chat_history = ""
+                print("Chat history cleared.")
+                continue
             if not safe_check(user):
                 print("Bot: Sorry, I can't help with that.")
                 continue
+            
+            print("Bot: Thinking...", end="", flush=True)
             prompt = chat_history + "\nUser: " + user + "\nAssistant:"
             reply = model_wrapper.generate(prompt)
+            print("\rBot:", reply)
+            
             # Update history
             chat_history += "\nUser: " + user + "\nAssistant: " + reply
-            print("Bot:", reply)
     except KeyboardInterrupt:
         print("\nInterrupted — exiting.")
 
@@ -212,8 +246,7 @@ def create_app(model_wrapper: ModelWrapper):
                 # Build prompt using stored chat history (process-level)
                 prompt = app.state.chat_history + "\nUser: " + data + "\nAssistant:"
                 # Run blocking model generate in thread pool to avoid blocking event loop
-                loop = asyncio.get_event_loop()
-                reply = await loop.run_in_executor(None, model_wrapper.generate, prompt)
+                reply = await asyncio.to_thread(model_wrapper.generate, prompt)
                 app.state.chat_history += "\nUser: " + data + "\nAssistant: " + reply
                 await ws.send_text(reply)
         except WebSocketDisconnect:
@@ -238,13 +271,19 @@ def main():
     ap.add_argument("--web", action="store_true", help="Run web server (FastAPI + WebSocket)")
     ap.add_argument("--host", default="0.0.0.0", help="Host for web server")
     ap.add_argument("--port", default=8000, type=int, help="Port for web server")
+    ap.add_argument("--version", action="version", version="MiniChat 1.0.0")
     args = ap.parse_args()
 
-    mw = ModelWrapper(model_name=args.model, device=args.device)
+    try:
+        mw = ModelWrapper(model_name=args.model, device=args.device)
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize model: {e}")
+        print("[INFO] Try using --device cpu if you're having GPU issues")
+        return 1
 
     if args.cli:
         run_cli(mw)
-        return
+        return 0
 
     if args.web:
         # Ensure client HTML exists
@@ -252,16 +291,19 @@ def main():
         app = create_app(mw)
         # Run uvicorn programmatically
         print(f"[INFO] Starting server at http://{args.host}:{args.port} ...")
+        print(f"[INFO] Open http://localhost:{args.port} in your browser")
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
-        return
+        return 0
 
     # If neither specified, print usage + small interactive prompt
     print("No mode chosen. Use --cli or --web. Example:\n  python mini_chat_all_in_one.py --web")
     # Offer to run CLI by default if interactive
     try:
         run_cli(mw)
-    except Exception:
-        pass
+        return 0
+    except Exception as e:
+        print(f"[ERROR] CLI failed: {e}")
+        return 1
 
 if __name__ == "__main__":
-    main()
+    exit(main())

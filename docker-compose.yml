@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  minichat:
+    build: .
+    container_name: minichat
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount model cache to persist downloaded models
+      - ./models:/root/.cache/huggingface
+      # Mount logs directory
+      - ./logs:/app/logs
+    environment:
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+      - HF_HOME=/root/.cache/huggingface
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+
+  # Optional: Add a simple monitoring service
+  minichat-monitor:
+    image: nginx:alpine
+    container_name: minichat-monitor
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - minichat
+    restart: unless-stopped
+    profiles:
+      - monitoring
